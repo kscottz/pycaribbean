@@ -6,6 +6,9 @@ import gphoto2 as gp
 import time
 
 def setup():
+    """
+    Attempt to attach to a gphoto device and grab the camera and context. Return the results.
+    """
     logging.basicConfig(
         format='%(levelname)s: %(name)s: %(message)s', level=logging.WARNING)
     gp.check_result(gp.use_python_logging())
@@ -18,6 +21,11 @@ def setup():
 
 
 def recurse_config(child,params={}):
+    """
+    The gphoto control structure is a byzantine swig structure.
+    This function traverses it recursively and puts it in a
+    nice python dictionary.
+    """
     if(child.count_children() <= 0):
         my_choices = []
         try:
@@ -36,6 +44,9 @@ def recurse_config(child,params={}):
         return params
 
 def print_config_dict(cdict,lvl=""):
+    """
+    Print a the python config dictionary for a camera.
+    """
     if isinstance(cdict,dict):
         for k,v in cdict.items():
             print "{0}{1}".format(lvl,k)
@@ -46,6 +57,13 @@ def print_config_dict(cdict,lvl=""):
         return
 
 def set_config(camera,context,config,path,value):
+    """
+    Given a gphoto camera, context, and config 
+    traverse the path of the config tree and set
+    a parameter value. The path is basically the nodes
+    to address in the control structure. Once the config
+    object has been modified we have to set it on the camera.
+    """
     current = config
     for p in path:
         current = current.get_child_by_name(p)
@@ -55,8 +73,11 @@ def set_config(camera,context,config,path,value):
     gp.check_result(gp.gp_camera_set_config(camera,config, context))
     print "Set {0} to {1}".format(current.get_name(),current.get_value())
 
+
 def capture_image(camera,context,name):
     """
+    Use gphoto to capture an image and retrieve it.
+    Place the file in /tmp/name
     """
     file_path = gp.check_result(gp.gp_camera_capture(
         camera, gp.GP_CAPTURE_IMAGE, context))
@@ -70,20 +91,37 @@ def capture_image(camera,context,name):
 
         
 def main():
+    # set up our camera.
     camera,context = setup()
+    # grab a single test image. 
     capture_image(camera,context,"crap.jpg")
+    # Get the configuration of the camera
     config = gp.check_result(gp.gp_camera_get_config(camera, context))
+    # Pythonify and print the configuration of the camera so
+    # we can see what parameters we can play with. 
     pconfig = recurse_config(config)
     print_config_dict(pconfig)
-    count = 0
+    # Put the camera in AV mode, or aperture priority. 
+    # Camera needs this to fiddle with aperture. 
     set_config(camera,context,config,["capturesettings","autoexposuremode"],"AV")
+    count = 0
+    # for all of the available aperture settings...
     for param in pconfig["capturesettings"]["aperture"]:
+        # get the camera configuration
         config = gp.check_result(gp.gp_camera_get_config(camera, context))
+        # set the new configuration
         set_config(camera,context,config,["capturesettings","aperture"],param)
-        print param
-        fname = "Capture{0}.jpg".format(count)
+        # and capture an image.
+        fname = "Capture{:0>5}.jpg".format(count)
         capture_image(camera,context,fname)
         count += 1
 
 if __name__ == "__main__":
     sys.exit(main())
+
+"""
+Bonus points ... make the results into an animated gif
+using image magick. 
+mogrify -path ./ -resize 8x8% -quality 90 -format jpg *.jpg
+convert -delay 50 -loop 0 *.jpg animated.gif
+"""
