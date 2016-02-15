@@ -123,5 +123,5 @@ if __name__ == "__main__":
 Bonus points ... make the results into an animated gif
 using image magick. 
 mogrify -path ./ -resize 8x8% -quality 90 -format jpg *.jpg
-convert -delay 50 -loop 0 *.jpg animated.gif
+convert -delay 1 -loop 0 *.jpg animated.gif
 """
